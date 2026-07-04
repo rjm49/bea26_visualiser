@@ -55,15 +55,7 @@ def get_mean_ge_components(source_data, edit_selector):
 
 
 
-def get_final_evp_data(puid, mean_evp_components_df, source_data, evp_lookup):
-    evp = source_data[source_data.public_user_id==puid].EVP_counts.tail(1).values[0]
-    evp = json.loads(evp)
-    v_lev = [evp[ix] for ix in evp_lookup.values()]
-    weighted_levels = [evp[evp_lookup[k]] * evp_lookup[k] for k in list(evp_lookup.keys())[0:-1]]
-    mean_evp = np.mean(weighted_levels)
-    evp_df = pd.DataFrame({"EVP_level":v_lev, "EVP_cat":evp_lookup.keys()})
-    evp_df["EVP_mean"] = mean_evp_components_df["EVP_level"]
-    return evp_df, mean_evp
+
 
 def get_rank_df(final_row_df, evp_lookup):
     user_list = []

@@ -1,17 +1,22 @@
 import json
 from collections import OrderedDict
 
+import numpy as np
 import pandas as pd
 import panel as pn
+import hvplot.pandas
+
+print(pn.__version__)
+print(hvplot.__version__)
 
 from data_transforms import epoch_correct, get_final_row_df, get_promptfinal_row_df, get_mean_evp_components, \
-    get_mean_ge_components, get_final_evp_data, get_rank_df, get_rankings, ger_filter_data, get_promptfinal_data, \
+    get_mean_ge_components,get_rank_df, get_rankings, ger_filter_data, get_promptfinal_data, \
     get_final_data_from_prompt_final, get_this_user_promptfinal, calc_ger_delta, calc_cefr_delta
 
 evp_lookup = OrderedDict({"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5, "UNK": 6})
 
-# pn.extension("tabulator")
-pn.extension()
+pn.extension("tabulator")
+# pn.extension()
 
 
 with open('all_error_types_compressed.json') as file:
@@ -52,12 +57,24 @@ sel_student = pn.widgets.Select(
 
 # Transform Data
 final_row_df = get_final_row_df(source_data)
-promptfinal_row_df = pn.rx( get_promptfinal_row_df)(puid=sel_student, source_data=source_data)
+promptfinal_row_df = pn.bind( get_promptfinal_row_df, puid=sel_student, source_data=source_data)
 mean_evp_components_df = get_mean_evp_components(evp_lookup, source_data)
 mean_ge_components_df = get_mean_ge_components(source_data, edit_selector)
+
+def get_final_evp_data(puid, mean_evp_components_df, source_data, evp_lookup):
+    evp = source_data[source_data.public_user_id==puid].EVP_counts.tail(1).values[0]
+    evp = json.loads(evp)
+    v_lev = [evp[ix] for ix in evp_lookup.values()]
+    weighted_levels = [evp[evp_lookup[k]] * evp_lookup[k] for k in list(evp_lookup.keys())[0:-1]]
+    mean_evp = np.mean(weighted_levels)
+    evp_df = pd.DataFrame({"EVP_level":v_lev, "EVP_cat":evp_lookup.keys()})
+    evp_df["EVP_mean"] = mean_evp_components_df["EVP_level"]
+    return evp_df, mean_evp
 evp_df, mean_evp = pn.rx(get_final_evp_data)(puid=sel_student, mean_evp_components_df=mean_evp_components_df, source_data=source_data, evp_lookup=evp_lookup)
+
 rank_df, num_users = get_rank_df(final_row_df, evp_lookup)
 ger_rank, cefr_rank, evp_rank, ranked_out_of = pn.rx(get_rankings)(rank_df=rank_df, public_user_id=sel_student)
+
 
 def update_ge_bar_chart(public_user_id, mean_ge_components_df):
     data = source_data[(source_data.public_user_id == public_user_id)]
